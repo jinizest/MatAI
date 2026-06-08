@@ -1,0 +1,14 @@
+{
+  "status": "success",
+  "updated_at": "2026-06-08T15:47:17+09:00",
+  "source": "sample_generated_locally",
+  "raw_path": "data/raw/latest_prediction.csv",
+  "processed_parquet_path": "data/processed/mor_predictions_latest.parquet",
+  "row_count": 80,
+  "min_eop": 0.8072,
+  "max_eop": 1.1784,
+  "min_ipu": 0.8244,
+  "max_ipu": 1.25,
+  "min_margin": 0.8416,
+  "max_margin": 1.332
+}

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>MOR Prediction Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background: #f7f7f8; color: #222; }
+    .container { max-width: 1240px; margin: 0 auto; }
+    .card { background: white; border: 1px solid #ddd; border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    .subtitle { color: #666; margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 12px; align-items: end; }
+    label { display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 6px; }
+    input, select, button { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; font-size: 14px; }
+    button { cursor: pointer; border: none; background: #222; color: white; font-weight: bold; }
+    button.secondary { background: #666; }
+    button.s3 { background: #315a9a; }
+    table { width: 100%; border-collapse: collapse; background: white; font-size: 13px; }
+    th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; white-space: nowrap; }
+    th { background: #fafafa; font-weight: bold; color: #444; }
+    .status { font-size: 13px; color: #555; line-height: 1.6; }
+    .error { color: #b00020; font-weight: bold; }
+    .ok { color: #0a7f37; font-weight: bold; }
+    .button-row { display: grid; grid-template-columns: 220px 220px; gap: 12px; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .button-row { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>MOR Prediction Viewer</h1>
+  <div class="subtitle">S3 raw prediction table → local raw → Parquet → DuckDB 조회</div>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label for="eopMax">EOP max</label>
+        <input id="eopMax" type="number" step="0.01" value="1.0">
+      </div>
+      <div>
+        <label for="ipuMax">IPU max</label>
+        <input id="ipuMax" type="number" step="0.01" value="1.0">
+      </div>
+      <div>
+        <label for="marginMin">Margin min</label>
+        <input id="marginMin" type="number" step="0.01" value="1.0">
+      </div>
+      <div>
+        <label for="limit">Limit</label>
+        <input id="limit" type="number" value="100">
+      </div>
+      <div>
+        <label for="sort">Sort</label>
+        <select id="sort">
+          <option value="balanced">Balanced score</option>
+          <option value="eop_asc">EOP 낮은 순</option>
+          <option value="ipu_asc">IPU 낮은 순</option>
+          <option value="margin_desc">Margin 높은 순</option>
+        </select>
+      </div>
+      <div>
+        <button onclick="loadCandidates()">조회</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="button-row">
+      <button class="secondary" onclick="rebuildLocal()">Local raw 재변환</button>
+      <button class="s3" onclick="refreshFromS3()">S3 다운로드 및 변환</button>
+    </div>
+    <div id="meta" class="status" style="margin-top: 12px;">metadata loading...</div>
+  </div>
+
+  <div class="card">
+    <div id="resultStatus" class="status">조건을 입력하고 조회하세요.</div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>sample_id</th>
+          <th>precursor_set</th>
+          <th>solvent</th>
+          <th>UL</th>
+          <th>pred_eop</th>
+          <th>pred_ipu</th>
+          <th>pred_margin</th>
+          <th>score</th>
+          <th>model_version</th>
+        </tr>
+      </thead>
+      <tbody id="candidateBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function fmt(value) {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "number") return value.toFixed(4);
+    return value;
+  }
+
+  async function loadMeta() {
+    const metaDiv = document.getElementById("meta");
+    try {
+      const res = await fetch("/api/meta");
+      const payload = await res.json();
+      const metadata = payload.metadata;
+      const summary = payload.summary;
+      let html = "";
+      html += `<div>Update status: <span class="${metadata.status === "success" ? "ok" : ""}">${metadata.status}</span></div>`;
+      if (metadata.updated_at) html += `<div>Updated at: ${metadata.updated_at}</div>`;
+      if (metadata.source) html += `<div>Source: ${metadata.source}</div>`;
+      if (metadata.raw_path) html += `<div>Raw path: ${metadata.raw_path}</div>`;
+      if (metadata.processed_parquet_path) html += `<div>Processed parquet: ${metadata.processed_parquet_path}</div>`;
+      if (metadata.row_count !== undefined) html += `<div>Converted rows: ${metadata.row_count}</div>`;
+      if (summary) {
+        html += `<div>Total rows: ${summary.n_rows}</div>`;
+        html += `<div>Default hit count: ${summary.n_default_hits}</div>`;
+        html += `<div>EOP range: ${fmt(summary.min_eop)} to ${fmt(summary.max_eop)}</div>`;
+        html += `<div>IPU range: ${fmt(summary.min_ipu)} to ${fmt(summary.max_ipu)}</div>`;
+        html += `<div>Margin range: ${fmt(summary.min_margin)} to ${fmt(summary.max_margin)}</div>`;
+        html += `<div>Model versions: ${summary.n_model_versions}</div>`;
+      }
+      if (metadata.error) html += `<div class="error">Error: ${metadata.error}</div>`;
+      metaDiv.innerHTML = html;
+    } catch (e) {
+      metaDiv.innerHTML = `<span class="error">Failed to load metadata: ${e}</span>`;
+    }
+  }
+
+  async function loadCandidates() {
+    const eopMax = document.getElementById("eopMax").value;
+    const ipuMax = document.getElementById("ipuMax").value;
+    const marginMin = document.getElementById("marginMin").value;
+    const limit = document.getElementById("limit").value;
+    const sort = document.getElementById("sort").value;
+    const resultStatus = document.getElementById("resultStatus");
+    const tbody = document.getElementById("candidateBody");
+    resultStatus.innerHTML = "Loading...";
+    tbody.innerHTML = "";
+
+    const params = new URLSearchParams({ eop_max: eopMax, ipu_max: ipuMax, margin_min: marginMin, limit: limit, sort: sort });
+    try {
+      const res = await fetch(`/api/candidates?${params.toString()}`);
+      const payload = await res.json();
+      if (!res.ok || payload.status !== "success") {
+        resultStatus.innerHTML = `<span class="error">${payload.error || "Query failed"}</span>`;
+        return;
+      }
+      resultStatus.innerHTML = `조회 결과: ${payload.count} candidates`;
+      for (const row of payload.data) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${fmt(row.sample_id)}</td>
+          <td>${fmt(row.precursor_set)}</td>
+          <td>${fmt(row.solvent)}</td>
+          <td>${fmt(row.ul)}</td>
+          <td>${fmt(row.pred_eop)}</td>
+          <td>${fmt(row.pred_ipu)}</td>
+          <td>${fmt(row.pred_margin)}</td>
+          <td>${fmt(row.candidate_score)}</td>
+          <td>${fmt(row.model_version)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    } catch (e) {
+      resultStatus.innerHTML = `<span class="error">Query failed: ${e}</span>`;
+    }
+  }
+
+  async function rebuildLocal() {
+    const metaDiv = document.getElementById("meta");
+    metaDiv.innerHTML = "Local raw table을 Parquet로 변환 중...";
+    try {
+      const res = await fetch("/api/admin/rebuild-local", { method: "POST" });
+      const payload = await res.json();
+      if (!res.ok || payload.status !== "success") {
+        metaDiv.innerHTML = `<span class="error">Local rebuild failed: ${payload.error}</span>`;
+        return;
+      }
+      await loadMeta();
+      await loadCandidates();
+    } catch (e) {
+      metaDiv.innerHTML = `<span class="error">Local rebuild failed: ${e}</span>`;
+    }
+  }
+
+  async function refreshFromS3() {
+    const metaDiv = document.getElementById("meta");
+    metaDiv.innerHTML = "S3 raw table 다운로드 및 Parquet 변환 중...";
+    try {
+      const res = await fetch("/api/admin/refresh-s3", { method: "POST" });
+      const payload = await res.json();
+      if (!res.ok || payload.status !== "success") {
+        metaDiv.innerHTML = `<span class="error">S3 update failed: ${payload.error}</span>`;
+        return;
+      }
+      await loadMeta();
+      await loadCandidates();
+    } catch (e) {
+      metaDiv.innerHTML = `<span class="error">S3 update failed: ${e}</span>`;
+    }
+  }
+
+  loadMeta();
+  loadCandidates();
+</script>
+</body>
+</html>

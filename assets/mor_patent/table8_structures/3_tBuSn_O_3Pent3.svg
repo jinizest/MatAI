@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420">
+  <rect width="100%" height="100%" fill="white"/>
+  <style>
+    .bond{stroke:#111;stroke-width:4;stroke-linecap:round}.atom{font-family:Arial,Helvetica,sans-serif;font-size:34px;fill:#111}.small{font-family:Arial,Helvetica,sans-serif;font-size:22px;fill:#111}.label{font-family:Arial,Helvetica,sans-serif;font-size:28px;font-weight:700;fill:#111}.o{font-family:Arial,Helvetica,sans-serif;font-size:32px;fill:#cc0000;font-weight:700}.note{font-family:Arial,Helvetica,sans-serif;font-size:19px;fill:#555}
+  </style>
+  <text x="320" y="205" text-anchor="middle" class="atom">Sn</text>
+  <line x1="320" y1="175" x2="320" y2="105" class="bond"/>
+  <text x="320" y="85" text-anchor="middle" class="small">C(CH<tspan baseline-shift="sub" font-size="14">3</tspan>)<tspan baseline-shift="sub" font-size="14">3</tspan></text>
+  <line x1="340" y1="185" x2="440" y2="115" class="bond"/>
+  <text x="465" y="111" text-anchor="middle" class="o">O</text>
+  <line x1="485" y1="105" x2="555" y2="70" class="bond"/>
+  <text x="570" y="66" text-anchor="start" class="small">CH(CH<tspan baseline-shift="sub" font-size="14">2</tspan>CH<tspan baseline-shift="sub" font-size="14">3</tspan>)<tspan baseline-shift="sub" font-size="14">2</tspan></text>
+  <line x1="320" y1="220" x2="320" y2="318" class="bond"/>
+  <text x="320" y="348" text-anchor="middle" class="o">O</text>
+  <line x1="320" y1="365" x2="320" y2="395" class="bond"/>
+  <text x="323" y="416" text-anchor="middle" class="small">CH(CH<tspan baseline-shift="sub" font-size="14">2</tspan>CH<tspan baseline-shift="sub" font-size="14">3</tspan>)<tspan baseline-shift="sub" font-size="14">2</tspan></text>
+  <line x1="300" y1="205" x2="190" y2="275" class="bond"/>
+  <text x="162" y="296" text-anchor="middle" class="o">O</text>
+  <line x1="140" y1="305" x2="75" y2="342" class="bond"/>
+  <text x="62" y="364" text-anchor="middle" class="small">CH(CH<tspan baseline-shift="sub" font-size="14">2</tspan>CH<tspan baseline-shift="sub" font-size="14">3</tspan>)<tspan baseline-shift="sub" font-size="14">2</tspan></text>
+  <text x="320" y="40" text-anchor="middle" class="label">3) tBuSn(O-3Pent)<tspan baseline-shift="sub" font-size="20">3</tspan></text>
+  <text x="320" y="78" text-anchor="middle" class="note">(CH3)3C-Sn[O-CH(CH2CH3)2]3 | 3 × O-R ligands</text>
+</svg>
